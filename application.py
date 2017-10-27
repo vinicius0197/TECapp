@@ -100,6 +100,21 @@ def data(user_id, trigger_id):
 
 
 @task
+def send_message(manager, project, date):
+	users = slack_client.api_call("users.list")
+
+	# user_list = []
+	# for user in users["members"]:
+	# 	user = user['id']
+	# 	user_list.append(user)
+
+	slack_client.api_call(
+	  "chat.postMessage",
+	  channel='#general',
+	  text= manager + " está responsável pela negociação do projeto " + project + " que chegou no dia " + date
+	)
+
+@task
 def manage_project(req):
 	conn = pymysql.connect(host=HOST_DB,    
                      user=USER_DB,         
@@ -108,21 +123,21 @@ def manage_project(req):
 	db = conn.cursor(pymysql.cursors.DictCursor)
 
 	if req["callback_id"] == "envio_projeto":
-		user = req["submission"]["responsavel"]
+		manager = req["submission"]["responsavel"]
 		project = req["submission"]["projeto"]
 		date = req["submission"]["data"]
 
 		# Ensures date is in the format XX/YY/ZZ
 		try:
 			date = datetime.datetime.strptime(date, '%d/%m/%Y').strftime('%d/%m/%Y')
-			db.execute("INSERT INTO projetos (person, project, date) VALUES (%s, %s, %s)   ", [user, project, date])
+			db.execute("INSERT INTO projetos (person, project, date) VALUES (%s, %s, %s)   ", [manager, project, date])
 			conn.commit()
 			db.close()
 		except ValueError:
 			return make_response("Data incorreta", 200)
 			db.close()
 
-		# code for sending message to all team with new project added
+		send_message(manager, project, date)
 
 	elif req["callback_id"] == "atualizar_projeto":
 		sel_project = req["submission"]["update_project"]
@@ -134,7 +149,7 @@ def manage_project(req):
 		conn.commit()
 		db.close()
 
-		# code for sending mesage to all team with status update
+		# code for sending message to all team with status update
 
 	elif req["callback_id"] == "remover_projeto":
 		sel_project = req["submission"]["update_project"]
