@@ -35,6 +35,8 @@ def status(response_url):
 	project_list = db.fetchall()
 
 	# code for deleting previous /stat message (refreshing)
+	greeting_text = {"text": "Buscando projetos...", "username": "bot"}
+	requests.post(response_url, data=json.dumps(greeting_text))
 
 	for project in project_list:
 		db.execute("SELECT status FROM historico WHERE id = %s", [project['id']])
@@ -48,7 +50,7 @@ def status(response_url):
 		responsavel = project['person']
 		projeto = project['project']
 		data = project['date']
-
+		
 		payload = {
 			"attachments":[
 				{
@@ -68,7 +70,15 @@ def status(response_url):
 
 @task
 def data(user_id, trigger_id):
-	
+	users = slack_client.api_call("users.list")
+
+	user_list = []
+	for user in users["members"]:
+		user_name = '@'+user['name']
+		user_id = '<@'+user['id']+'>'
+		user = {"label": user_name, "value": user_id}
+		user_list.append(user)
+
 	open_dialog = slack_client.api_call(
 		"dialog.open",
 		trigger_id=trigger_id,
@@ -79,8 +89,10 @@ def data(user_id, trigger_id):
 			"elements": [
 			{
 				"label": "Responsável",
+				"type": "select",
 				"name": "responsavel",
-				"type": "text",
+				"placeholder": "Responsável pelo projeto",
+				"options": user_list
 			},
 			{
 				"label": "Projeto",
@@ -99,14 +111,9 @@ def data(user_id, trigger_id):
 	print(open_dialog)
 
 
+
 @task
 def send_message(manager, project, date):
-	users = slack_client.api_call("users.list")
-
-	# user_list = []
-	# for user in users["members"]:
-	# 	user = user['id']
-	# 	user_list.append(user)
 
 	slack_client.api_call(
 	  "chat.postMessage",
